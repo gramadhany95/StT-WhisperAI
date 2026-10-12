@@ -1,43 +1,84 @@
-"""Core processing logic for StT-WhisperAI."""
+"""Transkripsi dengan maleo-ai/whisper-large-v3-turbo-id (faster-whisper) + addon speaker."""
 
 from __future__ import annotations
 
+import json
+import os
 import re
 import shutil
 from pathlib import Path
-from typing import Optional
+from typing import Any, Callable, Optional
 
-import torch
-import whisper
-from whisper.utils import get_writer
+os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
 
-from app.checks import check_ffmpeg, configure_ffmpeg, resolve_device
+from app.checks import configure_runtime, load_audio, resolve_device
+from app.config import (
+    AUDIO_EXTENSIONS,
+    DEFAULT_LANGUAGE,
+    HF_MODEL_ID,
+    HF_MODEL_SUBDIR,
+    HF_TOKEN,
+    INPUT_DIR,
+    OUTPUT_DIR,
+    SAMPLE_RATE,
+    WHISPER_MODEL_PATH,
+)
 
-# Konfigurasi ffmpeg sedini mungkin (WinGet sering tidak ada di PATH)
-configure_ffmpeg()
+configure_runtime()
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-INPUT_DIR = PROJECT_ROOT / "input"
-OUTPUT_DIR = PROJECT_ROOT / "output"
-
-AUDIO_EXTENSIONS = {
-    ".mp3", ".wav", ".flac", ".m4a", ".ogg", ".webm",
-    ".mp4", ".mpeg", ".mpga", ".wma", ".aac",
-}
+ProgressFn = Optional[Callable[[Optional[float], str], None]]
 
 _model = None
-_model_name: Optional[str] = None
 _device: Optional[str] = None
 
 
+def _report(on_progress: ProgressFn, fraction: Optional[float], msg: str) -> None:
+    if on_progress:
+        on_progress(fraction, msg)
+    else:
+        print(msg, flush=True)
+
+
+def _model_path() -> str:
+    if WHISPER_MODEL_PATH:
+        return WHISPER_MODEL_PATH
+    from huggingface_hub import snapshot_download
+
+    kwargs = {"repo_id": HF_MODEL_ID, "allow_patterns": f"{HF_MODEL_SUBDIR}/*"}
+    try:
+        cache = snapshot_download(**kwargs, local_files_only=True)
+    except Exception:
+        cache = snapshot_download(**kwargs)
+    return str(Path(cache) / HF_MODEL_SUBDIR)
+
+
+def get_model(device: Optional[str] = None, on_progress: ProgressFn = None):
+    global _model, _device
+    device = resolve_device(device)
+    if _model is not None and _device == device:
+        return _model
+
+    from faster_whisper import WhisperModel
+
+    _report(on_progress, None, f"Memuat {HF_MODEL_ID} ({device}) — pertama kali bisa beberapa menit...")
+    _model = WhisperModel(
+        _model_path(),
+        device=device,
+        compute_type="int8_float16" if device == "cuda" else "int8",
+        cpu_threads=4,
+    )
+    _device = device
+    _report(on_progress, 1.0, f"Model siap ({device}).")
+    return _model
+
+
 def ensure_dirs() -> None:
-    INPUT_DIR.mkdir(parents=True, exist_ok=True)
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    for d in (INPUT_DIR, OUTPUT_DIR):
+        d.mkdir(parents=True, exist_ok=True)
 
 
 def sanitize_filename(name: str) -> str:
-    name = name.strip()
-    name = re.sub(r'[<>:"/\\|?*]', "_", name)
+    name = re.sub(r'[<>:"/\\|?*]', "_", name.strip())
     name = re.sub(r"\s+", "_", name)
     return name.strip("._") or "transcript"
 
@@ -50,107 +91,141 @@ def list_input_files() -> list[Path]:
     )
 
 
-def copy_to_input(src_path: Path) -> Path:
-    """Salin file audio ke folder input/, handle duplikat nama."""
+def list_output_files() -> list[Path]:
     ensure_dirs()
-    ext = src_path.suffix.lower()
-    if ext not in AUDIO_EXTENSIONS:
-        raise ValueError(f"Format tidak didukung: {ext}")
+    return sorted(p for p in OUTPUT_DIR.iterdir() if p.is_file() and not p.name.startswith("."))
 
+
+def copy_to_input(src_path: Path) -> Path:
+    ensure_dirs()
+    if src_path.suffix.lower() not in AUDIO_EXTENSIONS:
+        raise ValueError(f"Format tidak didukung: {src_path.suffix}")
     dest = INPUT_DIR / src_path.name
-    if dest.exists():
-        stem, suffix = dest.stem, dest.suffix
-        counter = 1
-        while dest.exists():
-            dest = INPUT_DIR / f"{stem}_{counter}{suffix}"
-            counter += 1
-
+    counter = 1
+    while dest.exists():
+        dest = INPUT_DIR / f"{src_path.stem}_{counter}{src_path.suffix}"
+        counter += 1
     shutil.copy2(src_path, dest)
     return dest
 
 
-def list_output_files() -> list[Path]:
-    ensure_dirs()
-    return sorted(
-        p for p in OUTPUT_DIR.iterdir()
-        if p.is_file() and not p.name.startswith(".")
+def _ts(seconds: float, sep: str = ".") -> str:
+    ms = int(round(seconds * 1000))
+    h, ms = divmod(ms, 3_600_000)
+    m, ms = divmod(ms, 60_000)
+    s, ms = divmod(ms, 1000)
+    return f"{h:02d}:{m:02d}:{s:02d}{sep}{ms:03d}"
+
+
+def _speaker_text(segments: list[dict]) -> str:
+    return "\n\n".join(
+        f"[{_ts(s['start'])} --> {_ts(s['end'])}] {s.get('speaker', 'SPEAKER_UNKNOWN')}\n{s['text']}"
+        for s in segments
     )
 
 
-def get_model(model_name: str, device: str, on_status=None):
-    global _model, _model_name, _device
-    if _model is None or _model_name != model_name or _device != device:
-        msg = f"Memuat model '{model_name}' ({device})..."
-        if on_status:
-            on_status(msg)
-        else:
-            print(msg)
-        _model = whisper.load_model(model_name, device=device)
-        _model_name = model_name
-        _device = device
-    return _model
+def _write_outputs(result: dict, basename: str, output_format: str) -> Path:
+    ensure_dirs()
+    base = OUTPUT_DIR / basename
+    segments = result["segments"]
+    has_speaker = any(s.get("speaker") for s in segments)
+
+    def label(seg: dict) -> str:
+        return f"[{seg['speaker']}] {seg['text']}" if seg.get("speaker") else seg["text"]
+
+    if output_format in ("txt", "all"):
+        body = _speaker_text(segments) if has_speaker else result["text"]
+        base.with_suffix(".txt").write_text(body + "\n", encoding="utf-8")
+
+    if output_format in ("speakers", "all") and has_speaker:
+        base.with_suffix(".speakers.txt").write_text(_speaker_text(segments) + "\n", encoding="utf-8")
+
+    if output_format in ("json", "all"):
+        base.with_suffix(".json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    if output_format in ("srt", "all"):
+        lines = [
+            f"{i}\n{_ts(s['start'], ',')} --> {_ts(s['end'], ',')}\n{label(s)}\n"
+            for i, s in enumerate(segments, 1)
+        ]
+        base.with_suffix(".srt").write_text("\n".join(lines), encoding="utf-8")
+
+    if output_format in ("vtt", "all"):
+        lines = ["WEBVTT\n"] + [f"{_ts(s['start'])} --> {_ts(s['end'])}\n{label(s)}\n" for s in segments]
+        base.with_suffix(".vtt").write_text("\n".join(lines), encoding="utf-8")
+
+    if output_format == "speakers":
+        return base.with_suffix(".speakers.txt" if has_speaker else ".txt")
+    return base.with_suffix(".txt" if output_format == "all" else f".{output_format}")
 
 
 def transcribe_file(
     audio_path: Path,
     output_name: Optional[str] = None,
     *,
-    model_name: str = "turbo",
     language: Optional[str] = None,
-    task: str = "transcribe",
     output_format: str = "txt",
-    word_timestamps: bool = False,
+    vad_filter: bool = True,
+    beam_size: int = 5,
     device: Optional[str] = None,
-    on_status=None,
+    use_speaker: bool = False,
+    hf_token: Optional[str] = None,
+    min_speakers: Optional[int] = None,
+    max_speakers: Optional[int] = None,
+    on_progress: ProgressFn = None,
 ) -> dict:
-    """Transkripsi satu file audio, simpan ke output/."""
+    """Transkripsi audio dari input/ → output/."""
     ensure_dirs()
-    check_ffmpeg()
     device = resolve_device(device)
-
     basename = sanitize_filename(output_name) if output_name else audio_path.stem
-    model = get_model(model_name, device, on_status=on_status)
+    model = get_model(device, on_progress=on_progress)
 
-    msg = f"Memproses: {audio_path.name}"
-    if on_status:
-        on_status(msg)
-    else:
-        print(msg)
+    _report(on_progress, 0.03, f"Membaca audio: {audio_path.name}")
+    audio = load_audio(audio_path)
+    duration = len(audio) / SAMPLE_RATE
 
-    result = model.transcribe(
-        str(audio_path),
+    _report(on_progress, 0.05, "Transkripsi...")
+    segments, info = model.transcribe(
+        audio,
         language=language,
-        task=task,
-        word_timestamps=word_timestamps,
-        verbose=False,
+        beam_size=beam_size,
+        vad_filter=vad_filter,
     )
+    seg_list: list[dict[str, Any]] = []
+    for seg in segments:
+        text = seg.text.strip()
+        if text:
+            seg_list.append({"start": float(seg.start), "end": float(seg.end), "text": text})
+        if duration > 0:
+            frac = 0.05 + (0.55 if use_speaker else 0.9) * min(seg.end / duration, 1.0)
+            _report(on_progress, frac, f"Transkripsi… {seg.end:.0f}s / {duration:.0f}s")
+    lang = info.language or language or DEFAULT_LANGUAGE
 
-    writer = get_writer(output_format, str(OUTPUT_DIR))
-    fake_path = str(OUTPUT_DIR / f"{basename}{audio_path.suffix}")
-    writer(result, fake_path)
+    if use_speaker:
+        from app.speaker import diarize
 
-    ext = "txt" if output_format == "all" else output_format
-    output_path = OUTPUT_DIR / f"{basename}.{ext}"
-    text = result.get("text", "").strip()
-    lang = result.get("language", "-")
-
-    if on_status:
-        if output_format == "all":
-            on_status(f"Selesai → output/{basename}.*")
-        else:
-            on_status(f"Selesai → output/{basename}.{ext}")
+        token = (hf_token or HF_TOKEN or "").strip()
+        if not token:
+            raise RuntimeError(
+                "Addon speaker butuh HF_TOKEN di .env (atau isi di kolom HF Token)."
+            )
+        seg_list = diarize(
+            audio,
+            seg_list,
+            language=lang,
+            device=device,
+            hf_token=token,
+            min_speakers=min_speakers,
+            max_speakers=max_speakers,
+            on_progress=on_progress,
+        )
+        text = _speaker_text(seg_list)
     else:
-        print(f"  Bahasa: {lang}")
-        if output_format == "all":
-            print(f"  Disimpan: output/{basename}.*")
-        else:
-            print(f"  Disimpan: output/{basename}.{ext}")
-        preview = text[:120] + ("..." if len(text) > 120 else "")
-        print(f"  Preview: {preview}")
+        text = " ".join(s["text"] for s in seg_list).strip()
 
-    return {
-        "text": text,
-        "language": lang,
-        "output_path": output_path,
-        "basename": basename,
-    }
+    result = {"text": text, "language": lang, "segments": seg_list}
+    _report(on_progress, 0.97, "Menyimpan output...")
+    output_path = _write_outputs(result, basename, output_format)
+    _report(on_progress, 1.0, f"Selesai → output/{output_path.name}")
+
+    return {**result, "output_path": output_path, "basename": basename}
