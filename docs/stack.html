@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StT-WhisperAI — Stack & Roadmap MoM</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#111c33; --card:#16223d; --line:#24324f;
+    --text:#e2e8f0; --muted:#94a3b8; --accent:#38bdf8; --ok:#34d399;
+    --plan:#fbbf24; --warn:#f87171; --violet:#a78bfa;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.55}
+  .wrap{max-width:1180px;margin:0 auto;padding:40px 24px 64px}
+  header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:36px}
+  h1{font-size:2rem;letter-spacing:-.02em}
+  h1 span{color:var(--accent)}
+  .sub{color:var(--muted);margin-top:6px}
+  .legend{display:flex;gap:14px;font-size:.85rem;color:var(--muted)}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  h2{font-size:1.15rem;margin:44px 0 16px;display:flex;align-items:center;gap:10px}
+  h2::before{content:"";width:4px;height:20px;background:var(--accent);border-radius:2px}
+  .muted{color:var(--muted)}
+
+  .flow-row{display:grid;grid-template-columns:1fr 28px 1fr 28px 1fr 28px 1fr 28px 1fr 28px 1fr 28px 1fr}
+  .step{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 12px}
+  .step.ok{border-top:3px solid var(--ok)}
+  .step.plan{border-top:3px solid var(--plan)}
+  .step .n{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+  .step b{display:block;margin:4px 0 6px;font-size:.98rem}
+  .step p{font-size:.8rem;color:var(--muted)}
+  .arrow{display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:1.4rem}
+
+  .grid{display:grid;gap:16px}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}
+  .card h3{font-size:1rem;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .tag{font-size:.7rem;padding:3px 9px;border-radius:999px;font-weight:600;white-space:nowrap}
+  .tag.ok{background:#064e3b;color:var(--ok)}
+  .tag.plan{background:#422006;color:var(--plan)}
+  .tag.opt{background:#2e1065;color:var(--violet)}
+  table{width:100%;border-collapse:collapse;font-size:.88rem}
+  td{padding:7px 0;border-bottom:1px solid var(--line);vertical-align:top}
+  td:first-child{color:var(--muted);width:42%;padding-right:8px}
+  tr:last-child td{border-bottom:none}
+  code{font-family:Consolas,monospace;font-size:.84em;background:#0b1326;padding:1px 6px;border-radius:5px;color:#7dd3fc}
+
+  .vram{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .tier{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+  .tier .gb{font-size:1.8rem;font-weight:700;color:var(--accent)}
+  .bar{height:8px;background:#0b1326;border-radius:4px;margin:10px 0 14px;overflow:hidden}
+  .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--violet))}
+  .tier ul{list-style:none;font-size:.86rem}
+  .tier li{padding:4px 0;color:var(--muted)}
+  .tier li b{color:var(--text);font-weight:600}
+
+  pre{background:#0b1326;border:1px solid var(--line);border-radius:12px;padding:16px;font-size:.8rem;overflow:auto;color:#cbd5e1}
+  .k{color:#7dd3fc}.s{color:#fca5a5}
+
+  .road{position:relative;padding-left:28px}
+  .road::before{content:"";position:absolute;left:9px;top:6px;bottom:6px;width:2px;background:var(--line)}
+  .ph{position:relative;margin-bottom:18px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 18px}
+  .ph::before{content:"";position:absolute;left:-25px;top:18px;width:14px;height:14px;border-radius:50%;background:var(--bg);border:3px solid var(--plan)}
+  .ph.done::before{border-color:var(--ok);background:var(--ok)}
+  .ph.opt::before{border-color:var(--violet)}
+  .ph h4{font-size:.98rem;display:flex;justify-content:space-between;gap:10px}
+  .ph h4 span{font-size:.78rem;color:var(--muted);font-weight:400}
+  .ph ul{margin:8px 0 0 18px;font-size:.86rem;color:var(--muted)}
+
+  .notes{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+  .note{border-left:3px solid var(--warn);background:var(--panel);padding:14px 16px;border-radius:0 12px 12px 0;font-size:.88rem}
+  .note.i{border-color:var(--accent)}
+  .note b{display:block;margin-bottom:4px}
+  footer{margin-top:48px;color:var(--muted);font-size:.8rem;text-align:center}
+
+  @media (max-width:900px){
+    .flow-row{grid-template-columns:1fr}
+    .arrow{transform:rotate(90deg);height:24px}
+    .g2,.g3,.vram,.notes{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div>
+    <h1>StT-WhisperAI <span>→</span> Minutes of Meeting</h1>
+    <p class="sub">Desktop app lokal: rekaman rapat → transkrip per speaker → MoM otomatis</p>
+  </div>
+  <div class="legend">
+    <span><i class="dot" style="background:var(--ok)"></i>Sudah jalan</span>
+    <span><i class="dot" style="background:var(--plan)"></i>Direncanakan</span>
+    <span><i class="dot" style="background:var(--violet)"></i>Opsional</span>
+  </div>
+</header>
+
+<h2>Alur End-to-End</h2>
+<div class="flow-row">
+  <div class="step ok"><div class="n">01</div><b>Audio</b><p>mp3 / m4a / wav di <code>input/</code></p></div>
+  <div class="arrow">›</div>
+  <div class="step ok"><div class="n">02</div><b>ffmpeg</b><p>Decode ke 16 kHz mono</p></div>
+  <div class="arrow">›</div>
+  <div class="step ok"><div class="n">03</div><b>Transkripsi</b><p>faster-whisper + model maleo (GPU)</p></div>
+  <div class="arrow">›</div>
+  <div class="step ok"><div class="n">04</div><b>Speaker</b><p>WhisperX align + pyannote diarization</p></div>
+  <div class="arrow">›</div>
+  <div class="step plan"><div class="n">05</div><b>Pra-proses</b><p>Gabung segmen, buang filler, nama speaker</p></div>
+  <div class="arrow">›</div>
+  <div class="step plan"><div class="n">06</div><b>LLM Map→Reduce</b><p>Ekstrak JSON per potongan, lalu digabung</p></div>
+  <div class="arrow">›</div>
+  <div class="step plan"><div class="n">07</div><b>MoM</b><p>Export Markdown / DOCX</p></div>
+</div>
+
+<h2>Stack</h2>
+<div class="grid g3">
+  <div class="card">
+    <h3>Aplikasi &amp; Runtime <span class="tag ok">JALAN</span></h3>
+    <table>
+      <tr><td>Entry point</td><td><code>run.bat</code> → GUI tkinter</td></tr>
+      <tr><td>Python</td><td>3.12 (<code>py -3.12</code>)</td></tr>
+      <tr><td>PyTorch</td><td>2.8.0 + CUDA 12.8</td></tr>
+      <tr><td>CUDA DLL</td><td>cuBLAS 12 + cuDNN 9 dari <code>torch/lib</code></td></tr>
+      <tr><td>Audio</td><td>ffmpeg (winget)</td></tr>
+      <tr><td>Config</td><td><code>.env</code> (HF_TOKEN, FORCE_CPU)</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h3>Speech-to-Text <span class="tag ok">JALAN</span></h3>
+    <table>
+      <tr><td>Model</td><td>maleo-ai/whisper-large-v3-turbo-id</td></tr>
+      <tr><td>Format</td><td>CTranslate2 int8 (<code>int8_float16</code> di GPU)</td></tr>
+      <tr><td>Engine</td><td>faster-whisper ≥ 1.2, ctranslate2 4.8</td></tr>
+      <tr><td>Addon speaker</td><td>whisperx 3.8.6</td></tr>
+      <tr><td>Diarization</td><td>pyannote speaker-diarization-community-1</td></tr>
+      <tr><td>Output</td><td>txt · speakers · srt · vtt · json</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h3>LLM untuk MoM <span class="tag plan">RENCANA</span></h3>
+    <table>
+      <tr><td>Runtime lokal</td><td>Ollama (API hanya localhost)</td></tr>
+      <tr><td>Alternatif</td><td>llama-cpp-python (tanpa port)</td></tr>
+      <tr><td>Model</td><td>Qwen 2.5/3 7–8B · Sahabat-AI 8B · Gemma 3</td></tr>
+      <tr><td>Output</td><td>JSON schema (structured output)</td></tr>
+      <tr><td>Cloud <span class="tag opt">OPSI</span></td><td>OpenAI-compatible client</td></tr>
+      <tr><td>Export</td><td>python-docx + Markdown</td></tr>
+    </table>
+  </div>
+</div>
+
+<h2>Pilihan Model LLM per VRAM <span class="muted" style="font-size:.85rem;font-weight:400">— cek dengan <code>nvidia-smi</code></span></h2>
+<div class="vram">
+  <div class="tier">
+    <div class="gb">4 GB</div><div class="bar"><i style="width:33%"></i></div>
+    <ul>
+      <li><b>gemma3:4b</b> / <b>qwen2.5:3b</b> (Q4)</li>
+      <li>Potongan ±2.000 token</li>
+      <li>Cukup untuk ekstraksi, ringkasan lebih sederhana</li>
+    </ul>
+  </div>
+  <div class="tier">
+    <div class="gb">6 GB</div><div class="bar"><i style="width:55%"></i></div>
+    <ul>
+      <li><b>qwen2.5:7b</b> Q4 (sebagian offload ke CPU)</li>
+      <li><b>gemma3:4b</b> penuh di GPU</li>
+      <li>Potongan ±3.000 token</li>
+    </ul>
+  </div>
+  <div class="tier">
+    <div class="gb">8 GB</div><div class="bar"><i style="width:80%"></i></div>
+    <ul>
+      <li><b>qwen3:8b</b> / <b>qwen2.5:7b</b> Q4_K_M</li>
+      <li><b>Sahabat-AI 8B</b> (khusus bahasa Indonesia)</li>
+      <li>Konteks 8k, potongan ±4.000 token</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Skema Ekstraksi &amp; Template MoM</h2>
+<div class="grid g2">
+<pre>{
+  <span class="k">"topik"</span>: [{ <span class="k">"judul"</span>: <span class="s">"..."</span>, <span class="k">"ringkasan"</span>: <span class="s">"..."</span>, <span class="k">"timestamp"</span>: <span class="s">"00:12:30"</span> }],
+  <span class="k">"keputusan"</span>: [{ <span class="k">"isi"</span>: <span class="s">"..."</span>, <span class="k">"timestamp"</span>: <span class="s">"..."</span> }],
+  <span class="k">"action_items"</span>: [{
+    <span class="k">"tugas"</span>: <span class="s">"..."</span>, <span class="k">"pic"</span>: <span class="s">"Pak Budi"</span>,
+    <span class="k">"deadline"</span>: <span class="s">"2026-10-20"</span>, <span class="k">"timestamp"</span>: <span class="s">"..."</span>
+  }],
+  <span class="k">"isu_terbuka"</span>: [<span class="s">"..."</span>]
+}</pre>
+  <div class="card">
+    <h3>Isi Dokumen MoM</h3>
+    <table>
+      <tr><td>Header</td><td>Judul, tanggal, lokasi, peserta</td></tr>
+      <tr><td>Ringkasan</td><td>3–5 kalimat ringkasan eksekutif</td></tr>
+      <tr><td>Pembahasan</td><td>Per topik + timestamp</td></tr>
+      <tr><td>Keputusan</td><td>Daftar bernomor</td></tr>
+      <tr><td>Action items</td><td>Tabel tugas · PIC · deadline</td></tr>
+      <tr><td>Isu terbuka</td><td>Dibahas di rapat berikutnya</td></tr>
+    </table>
+  </div>
+</div>
+
+<h2>Roadmap Development</h2>
+<div class="road">
+  <div class="ph done"><h4>Selesai — STT + Speaker <span>sudah jalan</span></h4>
+    <ul><li>GUI desktop, progress bar, GPU CUDA 12.8</li><li>Model maleo, addon WhisperX (diarization butuh accept HF agreement)</li></ul></div>
+  <div class="ph"><h4>Fase 0 — Persiapan <span>½–1 hari</span></h4>
+    <ul><li>Cek VRAM, instal Ollama, <code>OLLAMA_MODELS</code> ke D:/E:</li><li>Siapkan 2–3 transkrip rapat nyata + 1 MoM manual sebagai pembanding</li></ul></div>
+  <div class="ph"><h4>Fase 1 — Prototipe CLI <span>1–2 hari</span></h4>
+    <ul><li><code>py -3.12 -m app.mom output/xxx.json</code> → MoM Markdown</li><li>Bandingkan 2–3 model, pilih yang paling akurat untuk action item</li></ul></div>
+  <div class="ph"><h4>Fase 2 — Kualitas <span>2–3 hari</span></h4>
+    <ul><li>JSON schema + retry, dedupe di tahap reduce</li><li>Glosarium istilah/nama proyek, mapping speaker → nama + jabatan</li></ul></div>
+  <div class="ph"><h4>Fase 3 — Integrasi GUI <span>2 hari</span></h4>
+    <ul><li>Tab "MoM": pilih transkrip, metadata rapat, mapping speaker, Generate + progress</li><li>Preview yang bisa diedit, export DOCX/MD</li></ul></div>
+  <div class="ph opt"><h4>Fase 4 — Opsional <span>sesuai kebutuhan</span></h4>
+    <ul><li>Toggle provider cloud untuk rapat yang tidak sensitif</li><li>Buat ulang per bagian, beberapa template MoM</li></ul></div>
+</div>
+
+<h2>Catatan Penting</h2>
+<div class="notes">
+  <div class="note"><b>VRAM dipakai bergantian</b>Lepas model Whisper sebelum LLM dimuat, karena GPU tidak cukup untuk keduanya sekaligus.</div>
+  <div class="note"><b>Drive C: hampir penuh</b>Simpan model LLM di D:/E: lewat <code>OLLAMA_MODELS</code>.</div>
+  <div class="note i"><b>Label speaker = kualitas PIC</b>Tanpa diarization, PIC action item sering kosong atau salah.</div>
+  <div class="note i"><b>Timestamp sebagai rujukan</b>Setiap poin MoM punya timestamp untuk dicek ke rekaman, menahan halusinasi.</div>
+</div>
+
+<footer>StT-WhisperAI · dokumen stack &amp; roadmap · Oktober 2026</footer>
+</div>
+</body>
+</html>
