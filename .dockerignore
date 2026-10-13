@@ -1,0 +1,12 @@
+.git
+.env
+.venv
+.piptmp
+_wheel_tmp
+**/__pycache__
+*.py[cod]
+data
+input
+output
+docs
+*.bat

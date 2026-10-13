@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Admin · User{% endblock %}
+{% block content %}
+{% include "admin_nav.html" %}
+<h1>User</h1>
+{% if notice %}<div class="flash ok"><b>{{ notice }}</b></div>{% endif %}
+
+<section class="card">
+  <h2>Tambah user</h2>
+  <form method="post" action="/admin/users" class="row wrap">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Username <input name="username" required maxlength="64" pattern="[A-Za-z0-9._\-]+"></label>
+    <label>Email <input name="email" type="email"></label>
+    <label>Password <input name="password" type="text" minlength="8" placeholder="kosong = dibuatkan"></label>
+    <label>Role <select name="role"><option value="user">user</option><option value="admin">admin</option></select></label>
+    <label>Kuota (MB) <input name="quota_mb" type="number" min="0" value="{{ default_quota }}" class="num"></label>
+    <label>Maks job aktif <input name="max_queued_jobs" type="number" min="1" class="num" placeholder="default"></label>
+    <button class="btn primary">Tambah</button>
+  </form>
+  <p class="small muted">User wajib mengganti password saat login pertama.</p>
+</section>
+
+<section class="card">
+  <table class="table">
+    <thead><tr><th>Username</th><th>Email</th><th>Role</th><th>Aktif</th><th>Kuota (MB)</th><th>Maks job</th><th>Pemakaian</th><th>Login terakhir</th><th></th></tr></thead>
+    <tbody>
+    {% for u in users %}
+      <tr>
+        <td><b>{{ u.username }}</b>{% if u.must_change_password %} <span class="tag muted" title="Belum ganti password sementara">pw sementara</span>{% endif %}</td>
+        <td><input form="uf{{ u.id }}" name="email" value="{{ u.email }}" class="sm-input"></td>
+        <td><select form="uf{{ u.id }}" name="role"><option {{ 'selected' if u.role == 'user' }}>user</option><option {{ 'selected' if u.role == 'admin' }}>admin</option></select></td>
+        <td><input form="uf{{ u.id }}" type="checkbox" name="is_active" value="true" {{ 'checked' if u.is_active }}></td>
+        <td><input form="uf{{ u.id }}" type="number" name="quota_mb" value="{{ u.quota_mb }}" min="0" class="num"></td>
+        <td><input form="uf{{ u.id }}" type="number" name="max_queued_jobs" value="{{ u.max_queued_jobs or '' }}" min="1" class="num" placeholder="default"></td>
+        <td>{{ usage.get(u.id, 0)|size }}</td>
+        <td>{{ u.last_login_at|dt }}</td>
+        <td class="right actions">
+          <form method="post" action="/admin/users/{{ u.id }}/update" id="uf{{ u.id }}">
+            <input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn sm">Simpan</button>
+          </form>
+          <form method="post" action="/admin/users/{{ u.id }}/reset-password" data-confirm="Reset password {{ u.username }}? Sesi user akan logout.">
+            <input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn sm danger">Reset pw</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

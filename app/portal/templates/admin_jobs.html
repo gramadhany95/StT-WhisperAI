@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Admin · Job{% endblock %}
+{% block content %}
+{% include "admin_nav.html" %}
+<div class="page-head">
+  <h1>Semua job</h1>
+  <div class="small muted">{{ summary.running }} running · {{ summary.queued }} antri · {{ summary.workers }} worker{% if summary.paused %} · <b>antrian dijeda</b>{% endif %}</div>
+</div>
+<nav class="subnav">
+  <a href="/admin/jobs" class="{{ 'active' if not status }}">Semua</a>
+  {% for s in statuses %}<a href="/admin/jobs?status={{ s }}" class="{{ 'active' if status == s }}">{{ s }}</a>{% endfor %}
+</nav>
+<section class="card">
+  <p class="small muted">Admin hanya melihat metadata job; isi transkrip tetap privat milik user.</p>
+  <table class="table">
+    <thead><tr><th>#</th><th>User</th><th>File</th><th>Durasi</th><th>Status</th><th>Antri</th><th>Prioritas</th><th>Percobaan</th><th>Dibuat</th><th class="right">Aksi</th></tr></thead>
+    <tbody>
+    {% for j in jobs %}
+      <tr>
+        <td>{{ j.id }}</td>
+        <td>{{ j.user }}</td>
+        <td>{{ j.file }}{% if j.speaker %} <span class="tag">speaker</span>{% endif %}</td>
+        <td>{{ j.duration|dur }}</td>
+        <td><span class="status s-{{ j.status }}" title="{{ j.error or j.stage }}">{{ j.status }}</span>
+          {% if j.status == 'running' %}<span class="small">{{ (j.progress * 100)|round|int }}%</span>{% endif %}</td>
+        <td>{{ j.position or '-' }}</td>
+        <td>
+          <form method="post" action="/admin/jobs/{{ j.id }}/priority" class="inline">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <input type="number" name="priority" value="{{ j.priority }}" min="-100" max="100" class="num" {{ 'disabled' if j.status != 'queued' }}>
+            {% if j.status == 'queued' %}<button class="btn sm">Set</button>{% endif %}
+          </form>
+        </td>
+        <td>{{ j.attempts }}</td>
+        <td class="small">{{ j.created|dt }}</td>
+        <td class="right actions">
+          {% if j.status in ('queued', 'running') %}
+          <form method="post" action="/admin/jobs/{{ j.id }}/cancel" data-confirm="Batalkan job #{{ j.id }} milik {{ j.user }}?">
+            <input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn sm danger">Batalkan</button>
+          </form>
+          {% elif j.status in ('failed', 'canceled') %}
+          <form method="post" action="/admin/jobs/{{ j.id }}/retry"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn sm">Ulangi</button></form>
+          {% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="10" class="empty">Tidak ada job.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

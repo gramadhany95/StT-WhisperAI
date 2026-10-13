@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}File{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>File saya</h1>
+    <div class="crumbs">
+      <a href="/files">Semua file</a>
+      {% for f in breadcrumbs %} / <a href="/files?folder={{ f.id }}">{{ f.name }}</a>{% endfor %}
+    </div>
+  </div>
+  <div class="quota" title="{{ used|size }} dari {{ quota|size }}">
+    <span class="small muted">Kuota: {{ used|size }} / {{ quota|size }}</span>
+    <div class="bar"><div style="width: {{ [100, (used / quota * 100) if quota else 100]|min }}%"></div></div>
+  </div>
+</div>
+
+<section class="card">
+  <h2>Upload audio</h2>
+  <div id="dropzone" class="dropzone">
+    <p>Tarik file audio ke sini atau <label class="link-like">pilih file<input id="file-input" type="file" accept="{{ accept }}" multiple hidden></label></p>
+    <p class="small muted">Format: {{ accept.replace(',', ', ') }} · maks {{ MAX_UPLOAD_MB }} MB per file</p>
+  </div>
+  <div class="options-row">
+    <label class="check"><input type="checkbox" id="up-auto" checked> Langsung masukkan ke antrian transkripsi</label>
+    <label>Bahasa
+      <select id="up-language">
+        {% for code, label in languages %}<option value="{{ code }}" {{ 'selected' if code == 'id' }}>{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="check" title="{{ '' if speaker_ok else 'HF_TOKEN belum diisi di server' }}">
+      <input type="checkbox" id="up-speaker" {{ '' if speaker_ok else 'disabled' }}> Pisahkan speaker
+    </label>
+    <label>Min <input type="number" id="up-min" min="1" max="20" class="num"></label>
+    <label>Max <input type="number" id="up-max" min="1" max="20" class="num"></label>
+  </div>
+  <ul id="upload-list" class="upload-list"></ul>
+  <input type="hidden" id="up-folder" value="{{ folder.id if folder else '' }}">
+</section>
+
+<section class="card">
+  <div class="section-head">
+    <h2>{{ folder.name if folder else 'Semua file' }}</h2>
+    <form method="post" action="/folders" class="inline">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      {% if folder %}<input type="hidden" name="parent_id" value="{{ folder.id }}">{% endif %}
+      <input name="name" placeholder="Nama folder baru" required>
+      <button class="btn">+ Folder</button>
+    </form>
+  </div>
+  <table class="table">
+    <thead><tr><th>Nama</th><th>Durasi</th><th>Ukuran</th><th>Diunggah</th><th>Transkrip</th><th class="right">Aksi</th></tr></thead>
+    <tbody>
+    {% if folder %}
+      <tr><td colspan="6"><a href="/files{{ '?folder=%d' % folder.parent_id if folder.parent_id else '' }}">⬆ ..</a></td></tr>
+    {% endif %}
+    {% for sf in subfolders %}
+      <tr>
+        <td>📁 <a href="/files?folder={{ sf.id }}">{{ sf.name }}</a></td>
+        <td colspan="4" class="muted">folder</td>
+        <td class="right actions">
+          <form method="post" action="/folders/{{ sf.id }}/rename" data-prompt="Nama folder baru" data-value="{{ sf.name }}">
+            <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="name"><button class="btn sm">Ganti nama</button>
+          </form>
+          <form method="post" action="/folders/{{ sf.id }}/delete" data-confirm="Hapus folder '{{ sf.name }}'? (harus kosong)">
+            <input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn sm danger">Hapus</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    {% for f in files %}
+      {% set job = latest.get(f.id) %}
+      <tr>
+        <td>
+          🎧 <span title="{{ f.original_name }}">{{ f.display_name }}</span>
+          <span class="tag {{ 'muted' if f.storage == 'local' }}" title="{{ 'Tersimpan lokal sementara, akan dipindah ke CDN' if f.storage == 'local' else 'Tersimpan di FRI CDN' }}">{{ 'CDN' if f.storage == 'cdn' else 'lokal' }}</span>
+        </td>
+        <td>{{ f.duration_sec|dur }}</td>
+        <td>{{ f.size_bytes|size }}</td>
+        <td>{{ f.created_at|dt }}</td>
+        <td>{% if job %}<a href="/jobs/{{ job.id }}" class="status s-{{ job.status }}">{{ job.status }}</a>{% else %}<span class="muted">-</span>{% endif %}</td>
+        <td class="right actions">
+          <a class="btn sm primary" href="/jobs/new?file_id={{ f.id }}">Transkripsi</a>
+          <button class="btn sm" data-play="/files/{{ f.id }}/stream">▶</button>
+          <a class="btn sm" href="/files/{{ f.id }}/download">Unduh</a>
+          <details class="menu">
+            <summary class="btn sm">⋯</summary>
+            <div class="menu-body">
+              <form method="post" action="/files/{{ f.id }}/rename" data-prompt="Nama file baru" data-value="{{ f.display_name }}">
+                <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="name"><button class="link">Ganti nama</button>
+              </form>
+              <form method="post" action="/files/{{ f.id }}/move">
+                <input type="hidden" name="csrf" value="{{ csrf }}">
+                <select name="folder_id" onchange="this.form.submit()">
+                  <option value="">Pindah ke…</option>
+                  <option value="">(Semua file / root)</option>
+                  {% for af in all_folders %}{% if af.id != f.folder_id %}<option value="{{ af.id }}">{{ af.name }}</option>{% endif %}{% endfor %}
+                </select>
+              </form>
+              <form method="post" action="/files/{{ f.id }}/delete" data-confirm="Hapus file '{{ f.display_name }}'? Transkrip yang sudah jadi tetap ada.">
+                <input type="hidden" name="csrf" value="{{ csrf }}"><button class="link danger">Hapus</button>
+              </form>
+            </div>
+          </details>
+        </td>
+      </tr>
+    {% endfor %}
+    {% if not subfolders and not files %}
+      <tr><td colspan="6" class="empty">Belum ada file. Upload audio rapat di atas.</td></tr>
+    {% endif %}
+    </tbody>
+  </table>
+  <audio id="player" controls hidden></audio>
+</section>
+{% endblock %}
+{% block scripts %}<script>initUpload();</script>{% endblock %}

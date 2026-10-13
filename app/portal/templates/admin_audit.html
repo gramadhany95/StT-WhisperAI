@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Admin · Audit{% endblock %}
+{% block content %}
+{% include "admin_nav.html" %}
+<h1>Audit log</h1>
+<section class="card">
+  <table class="table">
+    <thead><tr><th>Waktu</th><th>User</th><th>Aksi</th><th>Target</th><th>IP</th></tr></thead>
+    <tbody>
+    {% for l in logs %}
+      <tr><td>{{ l.created_at|dt }}</td><td>{{ l.username or '-' }}</td><td><code>{{ l.action }}</code></td><td>{{ l.target }}</td><td>{{ l.ip }}</td></tr>
+    {% else %}
+      <tr><td colspan="5" class="empty">Kosong.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

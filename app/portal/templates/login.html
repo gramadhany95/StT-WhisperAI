@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Login{% endblock %}
+{% block main_class %}auth{% endblock %}
+{% block content %}
+<form method="post" action="/login" class="card auth-card">
+  <h1>🎙 STT Portal</h1>
+  <p class="muted">Transkripsi rapat — whisper-large-v3-turbo-id</p>
+  <label>Username <input name="username" value="{{ username or '' }}" autocomplete="username" required autofocus></label>
+  <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
+  <button class="btn primary wide">Masuk</button>
+  <p class="muted small">Belum punya akun? Hubungi admin.</p>
+</form>
+{% endblock %}

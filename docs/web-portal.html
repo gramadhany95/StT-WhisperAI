@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StT-WhisperAI — Web Portal (Docker) · Stack & Desain</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#111c33; --card:#16223d; --line:#24324f;
+    --text:#e2e8f0; --muted:#94a3b8; --accent:#38bdf8; --ok:#34d399;
+    --plan:#fbbf24; --warn:#f87171; --violet:#a78bfa;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.55}
+  .wrap{max-width:1180px;margin:0 auto;padding:40px 24px 64px}
+  header{margin-bottom:28px}
+  h1{font-size:2rem;letter-spacing:-.02em}
+  h1 span{color:var(--accent)}
+  .sub{color:var(--muted);margin-top:6px;max-width:820px}
+  nav{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0 8px}
+  nav a{font-size:.8rem;color:var(--muted);text-decoration:none;border:1px solid var(--line);padding:4px 10px;border-radius:999px}
+  nav a:hover{color:var(--accent);border-color:var(--accent)}
+  h2{font-size:1.15rem;margin:44px 0 16px;display:flex;align-items:center;gap:10px;scroll-margin-top:16px}
+  h2::before{content:"";width:4px;height:20px;background:var(--accent);border-radius:2px}
+  h3{font-size:1rem;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  p.lead{color:var(--muted);font-size:.92rem;margin:-6px 0 16px;max-width:900px}
+  .muted{color:var(--muted)}
+  code{font-family:Consolas,monospace;font-size:.84em;background:#0b1326;padding:1px 6px;border-radius:5px;color:#7dd3fc}
+
+  .grid{display:grid;gap:16px}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}
+  .card p{font-size:.88rem;color:var(--muted)}
+  .card ul{margin-left:18px;font-size:.88rem;color:var(--muted)}
+  .card li{padding:2px 0}
+  .card li b{color:var(--text);font-weight:600}
+  .tag{font-size:.7rem;padding:3px 9px;border-radius:999px;font-weight:600;white-space:nowrap}
+  .tag.ok{background:#064e3b;color:var(--ok)}
+  .tag.plan{background:#422006;color:var(--plan)}
+  .tag.opt{background:#2e1065;color:var(--violet)}
+  .tag.gpu{background:#0c4a6e;color:var(--accent)}
+
+  table{width:100%;border-collapse:collapse;font-size:.86rem}
+  th{text-align:left;color:var(--muted);font-weight:600;font-size:.76rem;text-transform:uppercase;letter-spacing:.06em;padding:8px 10px;border-bottom:1px solid var(--line)}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  .kv td:first-child{color:var(--muted);width:38%}
+  .tbl{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+
+  /* architecture */
+  .arch{display:grid;grid-template-columns:1fr 40px 1.2fr 40px 1.6fr;gap:0;align-items:center}
+  .col{display:flex;flex-direction:column;gap:12px}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .box b{display:block;font-size:.95rem}
+  .box small{display:block;color:var(--muted);font-size:.78rem;margin-top:4px}
+  .box.gpu{border-color:#0369a1;box-shadow:0 0 0 1px #0369a1 inset}
+  .box.db{border-top:3px solid var(--violet)}
+  .box.web{border-top:3px solid var(--ok)}
+  .box.proxy{border-top:3px solid var(--plan)}
+  .arrow{text-align:center;color:var(--muted);font-size:1.4rem}
+  .vol{margin-top:12px;font-size:.8rem;color:var(--muted);border:1px dashed var(--line);border-radius:10px;padding:10px 12px}
+
+  /* job lifecycle */
+  .states{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+  .st{padding:8px 14px;border-radius:10px;font-size:.85rem;font-weight:600;border:1px solid var(--line);background:var(--card)}
+  .st.q{color:var(--plan)} .st.r{color:var(--accent)} .st.d{color:var(--ok)} .st.f{color:var(--warn)} .st.c{color:var(--muted)}
+  .st-arrow{color:var(--muted)}
+
+  /* mock */
+  .mock{background:#0b1326;border:1px solid var(--line);border-radius:12px;padding:14px;font-size:.82rem}
+  .mock .row{display:grid;grid-template-columns:2fr 1fr 1.4fr 1fr;gap:8px;padding:8px 6px;border-bottom:1px solid var(--line);align-items:center}
+  .mock .row:last-child{border-bottom:none}
+  .mock .hd{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.06em}
+  .pb{height:6px;background:#1e293b;border-radius:3px;overflow:hidden}
+  .pb i{display:block;height:100%;background:var(--accent)}
+  .pill{font-size:.72rem;padding:2px 8px;border-radius:999px;font-weight:600;display:inline-block}
+  .pill.r{background:#0c4a6e;color:var(--accent)} .pill.q{background:#422006;color:var(--plan)} .pill.d{background:#064e3b;color:var(--ok)}
+
+  pre{background:#0b1326;border:1px solid var(--line);border-radius:12px;padding:16px;font-size:.8rem;overflow:auto;color:#cbd5e1;line-height:1.5}
+  .c{color:#64748b}.k{color:#7dd3fc}.s{color:#fca5a5}
+
+  .road{position:relative;padding-left:28px}
+  .road::before{content:"";position:absolute;left:9px;top:6px;bottom:6px;width:2px;background:var(--line)}
+  .ph{position:relative;margin-bottom:16px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 18px}
+  .ph::before{content:"";position:absolute;left:-25px;top:18px;width:14px;height:14px;border-radius:50%;background:var(--bg);border:3px solid var(--plan)}
+  .ph.opt::before{border-color:var(--violet)}
+  .ph h4{font-size:.98rem;display:flex;justify-content:space-between;gap:10px}
+  .ph h4 span{font-size:.78rem;color:var(--muted);font-weight:400}
+  .ph ul{margin:8px 0 0 18px;font-size:.86rem;color:var(--muted)}
+
+  .notes{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+  .note{border-left:3px solid var(--warn);background:var(--panel);padding:14px 16px;border-radius:0 12px 12px 0;font-size:.88rem}
+  .note.i{border-color:var(--accent)}
+  .note.q{border-color:var(--plan)}
+  .note b{display:block;margin-bottom:4px}
+  .note span{color:var(--muted)}
+  footer{margin-top:48px;color:var(--muted);font-size:.8rem;text-align:center}
+
+  @media (max-width:960px){
+    .arch{grid-template-columns:1fr}
+    .arrow{transform:rotate(90deg);height:32px}
+    .g2,.g3,.g4,.notes{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>StT-WhisperAI <span>·</span> Web Portal</h1>
+  <p class="sub">Portal web multi-user berbasis Docker. Setiap user terdaftar bisa upload rekaman, mengelola file, dan mengirim job transkripsi ke <b>antrian tunggal</b> yang dikerjakan satu per satu oleh worker GPU. Admin mengelola user, kuota, dan antrian.</p>
+  <nav>
+    <a href="#arsitektur">Arsitektur</a><a href="#stack">Stack</a><a href="#queue">Antrian Job</a>
+    <a href="#user">User Portal</a><a href="#admin">Admin Portal</a><a href="#data">Data Model</a>
+    <a href="#api">API</a><a href="#docker">Docker</a><a href="#env">Env</a>
+    <a href="#security">Keamanan</a><a href="#roadmap">Roadmap</a><a href="#tanya">Perlu Diputuskan</a>
+  </nav>
+</header>
+
+<!-- ================= ARSITEKTUR ================= -->
+<h2 id="arsitektur">Arsitektur</h2>
+<p class="lead">Empat container. Web dan worker memakai kode yang sama (<code>app/</code>), tapi hanya worker yang memuat model AI dan memakai GPU. Postgres menjadi sumber kebenaran untuk user, metadata file, dan antrian job. Isi file disimpan di <b>FRI Mini CDN</b> (layanan eksternal); portal hanya menyimpan <code>cdn_file_id</code>.</p>
+<div class="arch">
+  <div class="col">
+    <div class="box"><b>Browser</b><small>User portal &amp; admin portal</small></div>
+  </div>
+  <div class="arrow">›</div>
+  <div class="col">
+    <div class="box proxy"><b>caddy</b><small>Reverse proxy, HTTPS otomatis, batas ukuran upload</small></div>
+    <div class="box web"><b>web</b><small>FastAPI + Jinja2 + JS polos. Auth, file management, submit job, status job. <u>Tanpa</u> torch → image ringan</small></div>
+  </div>
+  <div class="arrow">›</div>
+  <div class="col">
+    <div class="box db"><b>db — PostgreSQL 16</b><small>users · files · jobs (antrian) · audit_logs · settings</small></div>
+    <div class="box gpu"><b>worker <span class="tag gpu">GPU</span></b><small>Ambil 1 job dari antrian (<code>FOR UPDATE SKIP LOCKED</code>), jalankan faster-whisper (model maleo) + addon speaker, tulis progress ke DB. 1 worker = 1 job; tambah replika untuk GPU lain</small></div>
+  </div>
+</div>
+<div class="vol"><b>FRI Mini CDN</b> (<code>cdn-fri.virtualfri.id</code>, eksternal): isi file user + arsip <code>.txt</code> hasil. Selama CDN belum menerima MIME audio, audio disimpan di volume <code>appdata</code> (<code>/data/storage</code>) dan worker memindahkannya ke CDN otomatis setelah CDN menerima audio.<br>Volume: <code>appdata</code> (<code>/data</code>: storage lokal + file sementara, dipakai web &amp; worker) · <code>hf-cache</code> (model, hanya worker) · <code>pgdata</code> (database) · <code>caddy-data</code> (sertifikat HTTPS).</div>
+
+<!-- ================= STACK ================= -->
+<h2 id="stack">Stack</h2>
+<div class="grid g3">
+  <div class="card">
+    <h3>Backend</h3>
+    <table class="kv">
+      <tr><td>Framework</td><td>FastAPI + Uvicorn</td></tr>
+      <tr><td>ORM / skema</td><td>SQLAlchemy 2, tabel dibuat otomatis saat start (<code>create_all</code>)</td></tr>
+      <tr><td>Database</td><td>PostgreSQL 16</td></tr>
+      <tr><td>Password</td><td>argon2 (argon2-cffi)</td></tr>
+      <tr><td>Session</td><td>Cookie bertanda (itsdangerous) httpOnly + CSRF token</td></tr>
+      <tr><td>Validasi</td><td>Pydantic v2</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h3>Frontend</h3>
+    <table class="kv">
+      <tr><td>Render</td><td>Jinja2 (server-side)</td></tr>
+      <tr><td>Interaksi</td><td>JavaScript polos (polling status job tiap 3 detik)</td></tr>
+      <tr><td>Upload</td><td>Stream langsung ke disk (XHR PUT), progress bar, drag &amp; drop</td></tr>
+      <tr><td>CSS</td><td>Satu file CSS statis, tanpa build Node</td></tr>
+      <tr><td>Player</td><td><code>&lt;audio&gt;</code> HTML5 + lompat ke timestamp</td></tr>
+    </table>
+    <p style="margin-top:10px">Alasan: satu bahasa (Python), tanpa pipeline build frontend, cukup interaktif untuk portal internal.</p>
+  </div>
+  <div class="card">
+    <h3>Worker &amp; Infra</h3>
+    <table class="kv">
+      <tr><td>Queue</td><td>Tabel <code>jobs</code> di Postgres (<code>SKIP LOCKED</code>)</td></tr>
+      <tr><td>ASR</td><td>faster-whisper + maleo-ai/whisper-large-v3-turbo-id</td></tr>
+      <tr><td>Speaker</td><td>whisperx 3.8.6 + pyannote community-1</td></tr>
+      <tr><td>Image GPU</td><td>python:3.12-slim + torch 2.8 cu128 + ffmpeg</td></tr>
+      <tr><td>Container</td><td>Docker Compose, NVIDIA Container Toolkit</td></tr>
+      <tr><td>Proxy</td><td>Caddy 2</td></tr>
+      <tr><td>Storage file</td><td>FRI Mini CDN (API v1, httpx)</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="card" style="margin-top:16px">
+  <h3>Integrasi FRI Mini CDN <span class="tag ok">KUNCI TERUJI</span></h3>
+  <div class="grid g2">
+    <table class="kv">
+      <tr><td>Auth</td><td><code>POST /api/v1/auth/token</code> (header <code>X-API-Key</code> + <code>api_secret</code>) → JWT 2 jam, di-cache &amp; diperbarui otomatis oleh portal</td></tr>
+      <tr><td>Upload</td><td><code>POST /api/v1/upload</code> (multipart) → simpan <code>data.id</code> sebagai <code>files.cdn_file_id</code>; metadata <code>{"source":"stt-portal","user_id":..}</code></td></tr>
+      <tr><td>Unduh / putar</td><td>Portal cek kepemilikan → stream dari <code>GET /api/v1/download/{id}</code> ke browser</td></tr>
+      <tr><td>Hapus</td><td><code>DELETE /api/v1/files/{id}</code> (scope <code>files:delete</code> tersedia)</td></tr>
+      <tr><td>Rate limit</td><td>60 request/menit per aplikasi → panggilan CDN lewat satu client dengan retry + backoff</td></tr>
+    </table>
+    <div>
+      <p><b>Kepemilikan file ada di portal.</b> CDN hanya mengenal satu aplikasi (satu API key untuk seluruh portal), jadi pemisahan file per user, folder, nama tampilan, dan rename dikelola di tabel <code>files</code> Postgres. CDN tidak punya fitur rename/folder.</p>
+      <p style="margin-top:8px"><b>Hasil transkripsi</b> (teks + segmen + speaker) disimpan di Postgres. Format txt/srt/vtt/json dibuat saat diunduh, jadi tidak tergantung tipe file yang diizinkan CDN. Salinan <code>.txt</code> juga diarsipkan ke CDN.</p>
+      <p style="margin-top:8px;color:var(--warn)"><b>Kendala:</b> saat diuji, CDN hanya menerima <code>image/jpeg, image/png, image/webp, application/pdf, text/plain, application/zip</code>. File audio ditolak (422).</p>
+      <p style="margin-top:8px"><b>Solusi yang diterapkan:</b> portal mengecek (cache 1 jam) apakah CDN menerima audio dengan meng-upload file uji kecil lalu menghapusnya. Jika belum, audio disimpan lokal; worker memindahkan file lokal ke CDN tiap jam saat idle, dan admin bisa memicu lewat tombol <i>Cek CDN &amp; sinkron</i>.</p>
+    </div>
+  </div>
+</div>
+
+<div class="grid g2" style="margin-top:16px">
+  <div class="card">
+    <h3>Kenapa antrian di Postgres, bukan Redis/Celery? <span class="tag plan">KEPUTUSAN</span></h3>
+    <ul>
+      <li><b>Satu GPU = satu job</b> — throughput tidak butuh broker terpisah.</li>
+      <li><b>Posisi antrian &amp; fairness</b> mudah dihitung dengan query SQL biasa.</li>
+      <li><b>Cancel, retry, prioritas</b> cukup update kolom; semua tercatat di satu tempat.</li>
+      <li>Container lebih sedikit, backup cukup satu database.</li>
+    </ul>
+    <p style="margin-top:8px">Alternatif jika nanti butuh banyak worker/GPU: Redis + RQ/Celery. Interface worker dibuat terpisah supaya mudah diganti.</p>
+  </div>
+  <div class="card">
+    <h3>Hubungan dengan app desktop <span class="tag ok">TETAP ADA</span></h3>
+    <ul>
+      <li><code>run.bat</code> + GUI tkinter tetap jalan seperti sekarang.</li>
+      <li>Logika inti (<code>app/processor.py</code>, <code>app/speaker.py</code>) dipakai bersama oleh desktop dan worker.</li>
+      <li>Kode portal di <code>app/portal/</code>, tidak mengubah alur desktop.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ================= QUEUE ================= -->
+<h2 id="queue">Antrian Job (Batch Queue)</h2>
+<p class="lead">Semua permintaan parsing dari semua user masuk ke satu antrian. Worker mengambil satu job setiap kali, sehingga GPU tidak pernah menjalankan banyak job bersamaan.</p>
+
+<div class="card" style="margin-bottom:16px">
+  <h3>Siklus status job</h3>
+  <div class="states">
+    <span class="st q">queued</span><span class="st-arrow">→</span>
+    <span class="st r">running</span><span class="st-arrow">→</span>
+    <span class="st d">done</span>
+    <span class="muted" style="margin:0 8px">atau</span>
+    <span class="st f">failed</span>
+    <span class="muted" style="margin:0 8px">/</span>
+    <span class="st c">canceled</span>
+  </div>
+  <p style="margin-top:12px">Saat <b>running</b>, worker menulis <code>progress</code> (0–100) dan <code>stage</code> (mis. "Transkripsi 12:30 / 58:00", "Speaker: diarization 40%") ke tabel <code>jobs</code>. Halaman user membaca nilai ini tiap 3 detik.</p>
+</div>
+
+<div class="grid g3">
+  <div class="card">
+    <h3>Aturan antrian</h3>
+    <ul>
+      <li><b>Concurrency</b>: 1 job per worker. Tambah kapasitas = tambah replika worker (GPU lain).</li>
+      <li><b>Fair share</b>: job berikutnya diambil dari user yang paling lama tidak dilayani, baru urutan waktu submit. Satu user tidak bisa memonopoli antrian.</li>
+      <li><b>Batas per user</b>: maks. <code>MAX_QUEUED_PER_USER</code> job menunggu (default 3).</li>
+      <li><b>Prioritas</b>: admin bisa menaikkan prioritas job tertentu.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Ketahanan</h3>
+    <ul>
+      <li><b>Heartbeat</b> worker tiap 10 detik ke DB.</li>
+      <li>Job <b>running</b> tanpa heartbeat &gt; 2 menit dianggap macet → kembali ke <b>queued</b> (maks. 3 percobaan).</li>
+      <li><b>Timeout</b> per job (<code>JOB_TIMEOUT_MIN</code>).</li>
+      <li>Model tetap dimuat di worker antar job → tidak ada waktu load ulang.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Yang dilihat user</h3>
+    <ul>
+      <li>Job miliknya: status, progress bar, stage, posisi antrian, perkiraan mulai.</li>
+      <li>Ringkasan antrian global: "1 berjalan · 4 menunggu" (tanpa nama file/user lain).</li>
+      <li>Tombol <b>Cancel</b> untuk job miliknya yang masih queued/running.</li>
+      <li>Notifikasi di portal saat job selesai/gagal.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="mock" style="margin-top:16px">
+  <div class="row hd"><div>File</div><div>Status</div><div>Progress</div><div>Posisi</div></div>
+  <div class="row"><div>Rapat_SI_New_Concept.m4a</div><div><span class="pill r">running</span></div><div><div class="pb"><i style="width:62%"></i></div><small class="muted">Transkripsi 36:10 / 58:00</small></div><div>—</div></div>
+  <div class="row"><div>Weekly_Sync_13_Okt.mp3</div><div><span class="pill q">queued</span></div><div><div class="pb"><i style="width:0"></i></div></div><div>#2 · ±25 mnt</div></div>
+  <div class="row"><div>Meeting_Lab_SI_09_Okt.mp3</div><div><span class="pill d">done</span></div><div><div class="pb"><i style="width:100%;background:var(--ok)"></i></div></div><div><a href="#" style="color:var(--accent)">Lihat hasil</a></div></div>
+</div>
+<p class="muted" style="font-size:.8rem;margin-top:6px">Contoh tampilan halaman "Job Saya".</p>
+
+<pre style="margin-top:16px"><span class="c">-- Worker mengambil job berikutnya (fair share + prioritas), aman untuk banyak worker</span>
+<span class="k">SELECT</span> j.id <span class="k">FROM</span> jobs j
+<span class="k">JOIN</span> users u <span class="k">ON</span> u.id = j.user_id
+<span class="k">WHERE</span> j.status = <span class="s">'queued'</span>
+<span class="k">ORDER BY</span> j.priority <span class="k">DESC</span>, u.last_served_at <span class="k">ASC NULLS FIRST</span>, j.created_at <span class="k">ASC</span>
+<span class="k">LIMIT</span> 1
+<span class="k">FOR UPDATE OF</span> j <span class="k">SKIP LOCKED</span>;</pre>
+
+<!-- ================= USER PORTAL ================= -->
+<h2 id="user">User Portal</h2>
+<div class="grid g4">
+  <div class="card"><h3>Login</h3><ul><li>Username/email + password</li><li>Ganti password</li><li>Wajib ganti password saat login pertama (akun dibuat admin)</li></ul></div>
+  <div class="card"><h3>File Saya</h3><ul><li>Upload audio (drag &amp; drop, multi-file)</li><li>Folder sederhana</li><li>Rename, pindah, hapus, download</li><li>Pemakaian kuota (MB / GB)</li></ul></div>
+  <div class="card"><h3>Buat Job</h3><ul><li>Pilih file → bahasa, format output, VAD</li><li>Addon speaker + min/max speaker</li><li>Nama output custom</li><li>Submit → masuk antrian</li></ul></div>
+  <div class="card"><h3>Job Saya</h3><ul><li>Daftar job + progress live</li><li>Posisi antrian &amp; status global</li><li>Cancel / submit ulang</li><li>Riwayat job</li></ul></div>
+</div>
+<div class="grid g2" style="margin-top:16px">
+  <div class="card"><h3>Hasil Transkripsi</h3><ul><li>Viewer teks per speaker dengan timestamp; klik timestamp → audio diputar di posisi itu</li><li>Ganti label <code>SPEAKER_00</code> → nama asli (tersimpan per job)</li><li>Download txt · speakers · srt · vtt · json · semua (zip)</li></ul></div>
+  <div class="card"><h3>Generate dokumen (MoM) <span class="tag opt">DITAHAN</span></h3><ul><li>Belum dikerjakan. LLM nanti dijalankan di <b>server terpisah</b>; portal hanya memanggil API-nya</li><li>Kolom <code>jobs.type</code> sudah disiapkan (<code>transcribe</code> sekarang, <code>mom</code> nanti) supaya tidak perlu ubah skema</li></ul></div>
+</div>
+
+<!-- ================= ADMIN PORTAL ================= -->
+<h2 id="admin">Admin Portal</h2>
+<div class="grid g3">
+  <div class="card"><h3>User</h3><ul><li>Buat user (password sementara)</li><li>Reset password, nonaktifkan, hapus</li><li>Atur kuota storage &amp; batas job</li><li>Role: <code>user</code> / <code>admin</code></li></ul></div>
+  <div class="card"><h3>Antrian &amp; Job</h3><ul><li>Semua job semua user</li><li>Cancel, retry, ubah prioritas</li><li><b>Pause / resume</b> antrian (mis. saat maintenance GPU)</li><li>Log error job yang gagal</li></ul></div>
+  <div class="card"><h3>Sistem</h3><ul><li>Status worker (heartbeat, job aktif)</li><li>GPU: nama, VRAM terpakai</li><li>Disk: total storage per user</li><li>Pengaturan default (bahasa, retensi file)</li><li>Audit log (login, hapus file, aksi admin)</li></ul></div>
+</div>
+<div class="note i" style="margin-top:16px"><b>Admin default dari <code>.env</code></b><span>Saat container <code>web</code> start pertama kali dan belum ada admin, dibuat akun dari <code>ADMIN_USERNAME</code> / <code>ADMIN_PASSWORD</code> / <code>ADMIN_EMAIL</code>, dengan tanda <i>wajib ganti password</i> saat login pertama. Nilai di <code>.env</code> tidak menimpa password yang sudah diganti.</span></div>
+
+<!-- ================= DATA MODEL ================= -->
+<h2 id="data">Data Model</h2>
+<div class="grid g2">
+  <div class="tbl"><table>
+    <tr><th>Tabel</th><th>Kolom utama</th></tr>
+    <tr><td><code>users</code></td><td>id, username, email, password_hash, role, is_active, must_change_password, quota_mb, max_queued_jobs, last_served_at, created_at</td></tr>
+    <tr><td><code>folders</code></td><td>id, user_id, name, parent_id</td></tr>
+    <tr><td><code>files</code></td><td>id, user_id, folder_id, display_name, original_name, storage (<code>cdn</code>|<code>local</code>), cdn_file_id, local_path, size_bytes, duration_sec, mime, created_at, deleted_at</td></tr>
+    <tr><td><code>jobs</code></td><td>id, user_id, file_id, type, status, priority, options (JSON), title, progress, stage, created_at, started_at, finished_at, attempts, error, worker_id</td></tr>
+    <tr><td><code>transcripts</code></td><td>job_id, language, text, segments (JSON: start, end, text, speaker), duration_sec, cdn_txt_file_id</td></tr>
+  </table></div>
+  <div class="tbl"><table>
+    <tr><th>Tabel</th><th>Kolom utama</th></tr>
+    <tr><td><code>speaker_labels</code></td><td>job_id, speaker_key, display_name</td></tr>
+    <tr><td><code>workers</code></td><td>id, hostname, device, gpu_name, vram_total_mb, vram_used_mb, last_heartbeat, current_job_id, status</td></tr>
+    <tr><td><code>audit_logs</code></td><td>id, user_id, username, action, target, ip, created_at</td></tr>
+    <tr><td><code>settings</code></td><td>key, value (queue_paused, cdn_audio_allowed, cdn_audio_checked_at)</td></tr>
+  </table></div>
+</div>
+
+<!-- ================= API ================= -->
+<h2 id="api">Endpoint Utama</h2>
+<div class="grid g2">
+  <div class="tbl"><table>
+    <tr><th>User</th><th>Fungsi</th></tr>
+    <tr><td><code>POST /login</code> · <code>POST /logout</code> · <code>/change-password</code></td><td>Session</td></tr>
+    <tr><td><code>GET /files</code> · <code>POST /folders</code></td><td>Daftar file &amp; folder, buat folder</td></tr>
+    <tr><td><code>PUT /api/files/upload</code></td><td>Upload stream (+ opsi langsung masuk antrian)</td></tr>
+    <tr><td><code>POST /files/{id}/rename|move|delete</code></td><td>Rename, pindah folder, hapus</td></tr>
+    <tr><td><code>GET /files/{id}/download</code> · <code>/stream</code></td><td>Download / putar audio</td></tr>
+    <tr><td><code>GET /jobs/new</code> · <code>POST /jobs</code></td><td>Submit job ke antrian</td></tr>
+    <tr><td><code>GET /jobs</code> · <code>/jobs/{id}</code> · <code>/api/jobs[/{id}]</code></td><td>Status, progress, posisi antrian, estimasi</td></tr>
+    <tr><td><code>POST /jobs/{id}/cancel|retry|delete|speakers</code></td><td>Kontrol job, nama speaker</td></tr>
+    <tr><td><code>GET /jobs/{id}/download/{txt|speakers|srt|vtt|json}</code></td><td>Download hasil</td></tr>
+    <tr><td><code>GET /api/queue/summary</code></td><td>Ringkasan antrian global (anonim)</td></tr>
+  </table></div>
+  <div class="tbl"><table>
+    <tr><th>Admin (<code>/admin/*</code>)</th><th>Fungsi</th></tr>
+    <tr><td><code>GET /admin</code></td><td>Dashboard: worker, GPU/VRAM, antrian, status CDN</td></tr>
+    <tr><td><code>GET/POST /admin/users</code></td><td>Daftar / buat user</td></tr>
+    <tr><td><code>POST /admin/users/{id}/update|reset-password</code></td><td>Role, aktif, kuota, reset password</td></tr>
+    <tr><td><code>GET /admin/jobs</code></td><td>Semua job + filter status</td></tr>
+    <tr><td><code>POST /admin/jobs/{id}/cancel|retry|priority</code></td><td>Kontrol job</td></tr>
+    <tr><td><code>POST /admin/queue/pause|resume</code> · <code>/admin/cdn/check</code></td><td>Kontrol antrian, cek CDN + sinkron</td></tr>
+    <tr><td><code>GET /admin/audit</code></td><td>Audit log</td></tr>
+    <tr><td><code>GET /healthz</code></td><td>Health check container</td></tr>
+  </table></div>
+</div>
+
+<!-- ================= DOCKER ================= -->
+<h2 id="docker">Docker Compose</h2>
+<div class="grid g2">
+<pre><span class="k">services</span>:
+  <span class="k">db</span>:      postgres:16-alpine   <span class="c"># healthcheck pg_isready</span>
+    volumes: [pgdata:/var/lib/postgresql/data]
+  <span class="k">web</span>:
+    build: { context: ., dockerfile: deploy/web.Dockerfile }
+    env_file: .env
+    environment: { DATABASE_URL: <span class="c">dirakit dari POSTGRES_*</span> }
+    volumes: [appdata:/data]
+    depends_on: { db: service_healthy }
+  <span class="k">worker</span>:
+    build: { context: ., dockerfile: deploy/worker.Dockerfile }
+    env_file: .env
+    volumes: [appdata:/data, hf-cache:/models]
+    depends_on: { web: service_healthy }
+    deploy.resources.reservations.devices:
+      [{ driver: nvidia, count: 1, capabilities: [gpu] }]
+  <span class="k">caddy</span>:   caddy:2-alpine
+    ports: [<span class="s">"80:80"</span>, <span class="s">"443:443"</span>]
+    volumes: [./deploy/Caddyfile:/etc/caddy/Caddyfile:ro]</pre>
+  <div class="card">
+    <h3>Struktur folder</h3>
+<pre style="border:none;padding:0;background:none">app/
+  processor.py, speaker.py   <span class="c"># inti, dipakai desktop + worker</span>
+  gui.py                     <span class="c"># desktop (tetap)</span>
+  portal/
+    settings.py db.py models.py bootstrap.py
+    security.py cdn.py storage.py queue.py
+    formats.py media.py kv.py
+    worker.py                <span class="c"># python -m app.portal.worker</span>
+    web/                     <span class="c"># uvicorn app.portal.web:app</span>
+      deps.py routes_auth.py routes_files.py
+      routes_jobs.py routes_admin.py
+    templates/  static/
+deploy/
+  web.Dockerfile  worker.Dockerfile  Caddyfile
+docker-compose.yml  env.example</pre>
+    <p>Ukuran image: <b>web</b> ±300 MB, <b>worker</b> ±8–10 GB (torch CUDA + model).</p>
+  </div>
+</div>
+
+<!-- ================= ENV ================= -->
+<h2 id="env">Variabel <code>.env</code></h2>
+<div class="tbl"><table>
+  <tr><th>Variabel</th><th>Contoh</th><th>Keterangan</th></tr>
+  <tr><td><code>ADMIN_USERNAME</code></td><td>admin</td><td>Akun admin awal (dibuat sekali)</td></tr>
+  <tr><td><code>ADMIN_PASSWORD</code></td><td>ganti-saya</td><td>Password awal; wajib diganti saat login pertama</td></tr>
+  <tr><td><code>ADMIN_EMAIL</code></td><td>admin@kantor.local</td><td></td></tr>
+  <tr><td><code>SECRET_KEY</code></td><td>(string acak 64 karakter)</td><td>Tanda tangan session &amp; CSRF</td></tr>
+  <tr><td><code>POSTGRES_USER / _PASSWORD / _DB</code></td><td>stt / … / stt</td><td>Dipakai container db dan web/worker</td></tr>
+  <tr><td><code>DATABASE_URL</code></td><td>(otomatis)</td><td>Dirakit docker-compose dari <code>POSTGRES_*</code>; tanpa Docker memakai SQLite <code>data/portal.db</code></td></tr>
+  <tr><td><code>HF_TOKEN</code></td><td>hf_…</td><td>Download model + diarization (worker)</td></tr>
+  <tr><td><code>COOKIE_SECURE</code></td><td>0 / 1</td><td>Set 1 jika portal diakses lewat HTTPS</td></tr>
+  <tr><td><code>DISPLAY_TZ</code></td><td>Asia/Jakarta</td><td>Zona waktu tampilan</td></tr>
+  <tr><td><code>MAX_QUEUED_PER_USER</code></td><td>3</td><td>Batas job menunggu per user</td></tr>
+  <tr><td><code>JOB_TIMEOUT_MIN</code></td><td>180</td><td>Batas waktu satu job</td></tr>
+  <tr><td><code>MAX_UPLOAD_MB</code></td><td>1024</td><td>Batas ukuran file upload</td></tr>
+  <tr><td><code>DEFAULT_QUOTA_MB</code></td><td>10240</td><td>Kuota storage user baru</td></tr>
+  <tr><td><code>PUBLIC_HOST</code></td><td>:80 atau stt.domain.id</td><td><code>:80</code> = HTTP via IP; domain = HTTPS otomatis oleh Caddy</td></tr>
+  <tr><td><code>CDN_BASE_URL</code></td><td>https://cdn-fri.virtualfri.id</td><td>FRI Mini CDN</td></tr>
+  <tr><td><code>CDN_API_KEY</code></td><td>fri_…</td><td>Header <code>X-API-Key</code> (sudah diisi di <code>.env</code>)</td></tr>
+  <tr><td><code>CDN_API_SECRET</code></td><td>…</td><td>Ditukar jadi JWT (sudah diisi di <code>.env</code>)</td></tr>
+</table></div>
+
+<!-- ================= SECURITY ================= -->
+<h2 id="security">Keamanan</h2>
+<div class="grid g3">
+  <div class="card"><h3>Akses</h3><ul><li>Password argon2, rate limit login</li><li>Session cookie httpOnly + SameSite, CSRF di semua form</li><li>Setiap query file/job difilter <code>user_id</code> (user tidak bisa akses milik orang lain)</li></ul></div>
+  <div class="card"><h3>File</h3><ul><li>File terenkripsi di CDN; tidak ada URL publik permanen</li><li>Validasi ekstensi + cek audio via ffprobe sebelum upload</li><li>Download lewat endpoint portal yang cek kepemilikan; kunci CDN tidak pernah dikirim ke browser</li></ul></div>
+  <div class="card"><h3>Operasional</h3><ul><li>Hanya Caddy yang membuka port; db &amp; worker di network internal</li><li>Audit log aksi penting</li><li>Backup harian <code>pg_dump</code> (file sudah tersimpan di CDN)</li></ul></div>
+</div>
+
+<!-- ================= ROADMAP ================= -->
+<h2 id="roadmap">Roadmap Pembuatan</h2>
+<div class="road">
+  <div class="ph"><h4>Fase 1 — Fondasi <span>1–2 hari</span></h4>
+    <ul><li>docker-compose (web, db, caddy), model DB (<code>create_all</code>)</li><li>Login/logout, seed admin dari <code>.env</code>, wajib ganti password</li></ul></div>
+  <div class="ph"><h4>Fase 2 — File Management via CDN <span>2 hari</span></h4>
+    <ul><li>Client CDN (token cache, retry, rate limit), upload dengan progress, folder, rename/hapus/download, kuota</li></ul></div>
+  <div class="ph"><h4>Fase 3 — Antrian &amp; Worker GPU <span>2–3 hari</span></h4>
+    <ul><li>Tabel jobs, claim <code>SKIP LOCKED</code>, fair share, heartbeat, retry, timeout, cancel</li><li>Worker container GPU memakai <code>processor.py</code> + <code>speaker.py</code></li></ul></div>
+  <div class="ph"><h4>Fase 4 — Halaman Job &amp; Hasil <span>2 hari</span></h4>
+    <ul><li>Job Saya (progress live, posisi antrian), viewer hasil + audio player, mapping nama speaker, download</li></ul></div>
+  <div class="ph"><h4>Fase 5 — Admin Portal <span>2 hari</span></h4>
+    <ul><li>Kelola user, semua job, pause antrian, status sistem, audit log</li></ul></div>
+  <div class="ph"><h4>Fase 6 — Hardening <span>1–2 hari</span></h4>
+    <ul><li>Rate limit, retensi file, backup, uji beban (beberapa user submit bersamaan)</li></ul></div>
+  <div class="ph opt"><h4>DITAHAN — Generate MoM dengan LLM <span>setelah portal stabil</span></h4>
+    <ul><li>LLM di server terpisah; portal memanggil API-nya sebagai job tipe <code>mom</code> di antrian yang sama</li></ul></div>
+</div>
+
+<!-- ================= OPEN QUESTIONS ================= -->
+<h2 id="tanya">Catatan &amp; Perlu Diputuskan</h2>
+<div class="notes">
+  <div class="note"><b>CDN belum menerima file audio</b><span>Diputuskan: minta admin CDN menambahkan MIME audio (<code>audio/mpeg, audio/mp4, audio/x-m4a, audio/wav, audio/flac, audio/ogg, audio/webm, video/mp4</code>) dan cek batas ukuran upload. Sementara itu audio disimpan lokal dan otomatis pindah ke CDN setelah diizinkan.</span></div>
+  <div class="note"><b>Deploy di server Linux</b><span>Diputuskan: stack dijalankan di server Linux terpisah dengan Docker Engine + NVIDIA Container Toolkit. Langkah deploy ada di README.</span></div>
+  <div class="note"><b>Satu GPU dipakai bergantian</b><span>Kalau GUI desktop dan worker Docker jalan bersamaan di PC yang sama, keduanya rebutan VRAM. Disarankan: server portal di mesin terpisah, atau desktop dipakai hanya saat worker di-pause.</span></div>
+  <div class="note q"><b>Pendaftaran user</b><span>Opsi A: hanya admin yang membuat akun (disarankan untuk internal). Opsi B: user daftar sendiri lalu menunggu persetujuan admin.</span></div>
+  <div class="note q"><b>Akses</b><span>Hanya jaringan kantor (<code>PUBLIC_HOST=:80</code>), atau perlu diakses dari internet (isi domain di <code>PUBLIC_HOST</code> → HTTPS otomatis, lalu <code>COOKIE_SECURE=1</code>)?</span></div>
+  <div class="note q"><b>Jumlah user &amp; volume rapat</b><span>Perkiraan user aktif dan jam rekaman per hari menentukan apakah 1 GPU cukup (±1 jam audio ≈ 3–6 menit di RTX 3050 tanpa speaker; lebih lama dengan speaker).</span></div>
+  <div class="note q"><b>Retensi &amp; privasi</b><span>Berapa lama file audio dan hasil disimpan? Apakah admin boleh melihat isi transkrip user, atau hanya metadata job?</span></div>
+</div>
+
+<footer>StT-WhisperAI · Web Portal · dokumen desain, disinkronkan dengan implementasi · Oktober 2026</footer>
+</div>
+</body>
+</html>

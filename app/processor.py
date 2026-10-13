@@ -159,12 +159,10 @@ def _write_outputs(result: dict, basename: str, output_format: str) -> Path:
     return base.with_suffix(".txt" if output_format == "all" else f".{output_format}")
 
 
-def transcribe_file(
+def transcribe_audio(
     audio_path: Path,
-    output_name: Optional[str] = None,
     *,
     language: Optional[str] = None,
-    output_format: str = "txt",
     vad_filter: bool = True,
     beam_size: int = 5,
     device: Optional[str] = None,
@@ -174,10 +172,8 @@ def transcribe_file(
     max_speakers: Optional[int] = None,
     on_progress: ProgressFn = None,
 ) -> dict:
-    """Transkripsi audio dari input/ → output/."""
-    ensure_dirs()
+    """Transkripsi tanpa menulis file. Return {text, language, segments, duration}."""
     device = resolve_device(device)
-    basename = sanitize_filename(output_name) if output_name else audio_path.stem
     model = get_model(device, on_progress=on_progress)
 
     _report(on_progress, 0.03, f"Membaca audio: {audio_path.name}")
@@ -223,7 +219,22 @@ def transcribe_file(
     else:
         text = " ".join(s["text"] for s in seg_list).strip()
 
-    result = {"text": text, "language": lang, "segments": seg_list}
+    return {"text": text, "language": lang, "segments": seg_list, "duration": duration}
+
+
+def transcribe_file(
+    audio_path: Path,
+    output_name: Optional[str] = None,
+    *,
+    output_format: str = "txt",
+    on_progress: ProgressFn = None,
+    **options: Any,
+) -> dict:
+    """Transkripsi audio dari input/ → output/ (dipakai GUI desktop)."""
+    ensure_dirs()
+    basename = sanitize_filename(output_name) if output_name else audio_path.stem
+    result = transcribe_audio(audio_path, on_progress=on_progress, **options)
+    result.pop("duration", None)
     _report(on_progress, 0.97, "Menyimpan output...")
     output_path = _write_outputs(result, basename, output_format)
     _report(on_progress, 1.0, f"Selesai → output/{output_path.name}")

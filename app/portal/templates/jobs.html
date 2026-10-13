@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Job{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Job saya</h1>
+  <a class="btn primary" href="/jobs/new">+ Transkripsi baru</a>
+</div>
+<div class="stats" id="queue-stats">
+  <div class="stat"><b data-k="running">-</b><span>sedang diproses</span></div>
+  <div class="stat"><b data-k="queued">-</b><span>dalam antrian (semua user)</span></div>
+  <div class="stat"><b data-k="workers">-</b><span>worker GPU aktif</span></div>
+</div>
+<div id="paused-note" class="flash err" hidden>Antrian sedang dijeda oleh admin. Job baru tetap tersimpan dan akan diproses setelah dilanjutkan.</div>
+<section class="card">
+  <table class="table">
+    <thead><tr><th>#</th><th>Judul</th><th>Status</th><th>Progres</th><th>Estimasi</th><th>Dibuat</th></tr></thead>
+    <tbody id="jobs-body"><tr><td colspan="6" class="empty">Memuat…</td></tr></tbody>
+  </table>
+</section>
+{% endblock %}
+{% block scripts %}<script>initJobsList();</script>{% endblock %}

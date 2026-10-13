@@ -3,6 +3,7 @@ __pycache__/
 .venv/
 .piptmp/
 .env
+data/
 
 input/*
 !input/.gitkeep

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Transkripsi baru{% endblock %}
+{% block content %}
+<h1>Transkripsi baru</h1>
+{% if not files %}
+<div class="card"><p>Belum ada file audio. <a href="/files">Upload dulu</a>.</p></div>
+{% else %}
+<form method="post" action="/jobs" class="card form-grid">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label class="full">File audio
+    <select name="file_id" required>
+      {% for f in files %}<option value="{{ f.id }}" {{ 'selected' if f.id == file_id }}>{{ f.display_name }} ({{ f.duration_sec|dur }})</option>{% endfor %}
+    </select>
+  </label>
+  <label class="full">Judul (opsional) <input name="title" maxlength="255" placeholder="mis. Rapat Lab SI 9 Okt"></label>
+  <label>Bahasa
+    <select name="language">
+      {% for code, label in languages %}<option value="{{ code }}" {{ 'selected' if code == 'id' }}>{{ label }}</option>{% endfor %}
+    </select>
+  </label>
+  <label class="check"><input type="checkbox" name="vad" value="true" checked> VAD (lewati bagian hening)</label>
+  <fieldset class="full">
+    <legend>Addon speaker (diarization)</legend>
+    {% if speaker_ok %}
+    <label class="check"><input type="checkbox" name="speaker" value="true"> Pisahkan per speaker (proses lebih lama)</label>
+    <div class="row">
+      <label>Min speaker <input type="number" name="min_speakers" min="1" max="20" class="num"></label>
+      <label>Max speaker <input type="number" name="max_speakers" min="1" max="20" class="num"></label>
+    </div>
+    {% else %}
+    <p class="muted small">Belum aktif — admin perlu mengisi HF_TOKEN di server.</p>
+    {% endif %}
+  </fieldset>
+  <div class="full"><button class="btn primary">Masukkan ke antrian</button> <a class="btn" href="/files">Batal</a></div>
+</form>
+{% endif %}
+{% endblock %}

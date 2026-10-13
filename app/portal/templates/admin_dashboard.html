@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Admin{% endblock %}
+{% block content %}
+{% include "admin_nav.html" %}
+<h1>Dashboard</h1>
+<div class="stats">
+  {% for s in statuses %}<a class="stat" href="/admin/jobs?status={{ s }}"><b>{{ counts.get(s, 0) }}</b><span>{{ s }}</span></a>{% endfor %}
+  <a class="stat" href="/admin/users"><b>{{ users }}</b><span>user</span></a>
+</div>
+
+<div class="grid2">
+  <section class="card">
+    <div class="section-head">
+      <h2>Antrian</h2>
+      <form method="post" action="/admin/queue/{{ 'resume' if paused else 'pause' }}">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button class="btn {{ 'primary' if paused else 'danger' }}">{{ 'Lanjutkan antrian' if paused else 'Jeda antrian' }}</button>
+      </form>
+    </div>
+    <p>Status: {% if paused %}<span class="status s-failed">dijeda</span> — worker tidak mengambil job baru.{% else %}<span class="status s-done">berjalan</span>{% endif %}</p>
+    <p class="small muted">Satu worker memproses satu job sekaligus. Tambah kapasitas dengan menambah replika worker (GPU lain).</p>
+  </section>
+
+  <section class="card">
+    <div class="section-head">
+      <h2>Storage / FRI CDN</h2>
+      <form method="post" action="/admin/cdn/check"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn">Cek CDN &amp; sinkron</button></form>
+    </div>
+    {% if cdn_enabled %}
+    <p>CDN: <code>{{ cdn_base }}</code></p>
+    <p>Audio diterima CDN:
+      {% if cdn_audio %}<span class="status s-done">ya</span>{% else %}<span class="status s-queued">belum</span> — audio disimpan lokal dulu, otomatis dipindah saat CDN sudah menerima audio.{% endif %}
+    </p>
+    {% else %}
+    <p><span class="status s-failed">CDN nonaktif</span> — isi CDN_BASE_URL / CDN_API_KEY / CDN_API_SECRET di .env.</p>
+    {% endif %}
+    <p>File di CDN: <b>{{ storage_counts.get('cdn', 0) }}</b> · file lokal: <b>{{ storage_counts.get('local', 0) }}</b></p>
+  </section>
+</div>
+
+<section class="card">
+  <h2>Worker</h2>
+  <table class="table">
+    <thead><tr><th>ID</th><th>Status</th><th>Device</th><th>VRAM</th><th>Job</th><th>Heartbeat</th></tr></thead>
+    <tbody>
+    {% for w in workers %}
+      <tr class="{{ '' if w.id in alive else 'dim' }}">
+        <td><code>{{ w.id }}</code></td>
+        <td>{% if w.id in alive %}<span class="status s-{{ 'running' if w.status == 'busy' else 'done' }}">{{ w.status }}</span>{% else %}<span class="status s-canceled">offline</span>{% endif %}</td>
+        <td>{{ w.device }}{% if w.gpu_name %} · {{ w.gpu_name }}{% endif %}</td>
+        <td>{% if w.vram_total_mb %}{{ w.vram_used_mb }} / {{ w.vram_total_mb }} MB{% else %}-{% endif %}</td>
+        <td>{% if w.current_job_id %}#{{ w.current_job_id }}{% else %}-{% endif %}</td>
+        <td>{{ w.last_heartbeat|dt }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="6" class="empty">Belum ada worker terdaftar. Jalankan service <code>worker</code>.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

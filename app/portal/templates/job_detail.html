@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Job #{{ job.id }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ job.title or job.file.display_name }}</h1>
+    <div class="small muted">Job #{{ job.id }} · file: {{ job.file.display_name }} · dibuat {{ job.created_at|dt }}
+      {% if job.options.use_speaker %} · addon speaker{% endif %}
+      {% if transcript %} · bahasa: {{ transcript.language }}{% endif %}</div>
+  </div>
+  <div class="actions">
+    {% if job.status in ('queued', 'running') %}
+    <form method="post" action="/jobs/{{ job.id }}/cancel" data-confirm="Batalkan job ini?">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn danger">Batalkan</button>
+    </form>
+    {% endif %}
+    {% if job.status in ('failed', 'canceled') and not job.file.deleted_at %}
+    <form method="post" action="/jobs/{{ job.id }}/retry"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn">Ulangi</button></form>
+    {% endif %}
+    {% if job.status not in ('queued', 'running') %}
+    <form method="post" action="/jobs/{{ job.id }}/delete" data-confirm="Hapus job dan transkripnya?">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn danger">Hapus</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+{% if job.status in ('queued', 'running') %}
+<section class="card" id="live" data-job="{{ job.id }}">
+  <div class="row between">
+    <span class="status s-{{ job.status }}" data-f="status">{{ job.status }}</span>
+    <span class="muted small" data-f="eta"></span>
+  </div>
+  <div class="progress"><div data-f="bar" style="width: {{ (job.progress * 100)|round(1) }}%"></div></div>
+  <div class="small" data-f="stage">{{ job.stage or 'Menunggu giliran…' }}</div>
+</section>
+{% elif job.status == 'failed' %}
+<section class="card"><span class="status s-failed">gagal</span><pre class="error-box">{{ job.error }}</pre></section>
+{% elif job.status == 'canceled' %}
+<section class="card"><span class="status s-canceled">dibatalkan</span></section>
+{% endif %}
+
+{% if transcript %}
+<section class="card">
+  <div class="section-head">
+    <h2>Hasil transkrip</h2>
+    <div class="actions">
+      <a class="btn sm" href="/jobs/{{ job.id }}/download/txt">TXT</a>
+      {% if speakers %}<a class="btn sm" href="/jobs/{{ job.id }}/download/speakers">Speakers TXT</a>{% endif %}
+      <a class="btn sm" href="/jobs/{{ job.id }}/download/srt">SRT</a>
+      <a class="btn sm" href="/jobs/{{ job.id }}/download/vtt">VTT</a>
+      <a class="btn sm" href="/jobs/{{ job.id }}/download/json">JSON</a>
+      <button class="btn sm" id="copy-text">Salin teks</button>
+    </div>
+  </div>
+  {% if not job.file.deleted_at %}<audio id="player" controls preload="none" src="/files/{{ job.file.id }}/stream"></audio>{% endif %}
+
+  {% if speakers %}
+  <details class="speaker-form">
+    <summary>Ganti nama speaker ({{ speakers|length }})</summary>
+    <form method="post" action="/jobs/{{ job.id }}/speakers" class="row wrap">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      {% for s in speakers %}<label>{{ s }} <input name="spk__{{ s }}" value="{{ labels.get(s, '') }}" placeholder="mis. Pak Budi"></label>{% endfor %}
+      <button class="btn sm primary">Simpan</button>
+    </form>
+  </details>
+  {% endif %}
+
+  <div class="transcript" id="transcript">
+    {% for s in segments %}
+    <p class="seg" data-start="{{ s.start }}">
+      <a class="ts" href="#" title="Putar dari sini">{{ ts(s.start)[:8] }}</a>
+      {% if s.speaker %}<b class="spk">{{ s.speaker }}</b>{% endif %}
+      <span>{{ s.text }}</span>
+    </p>
+    {% else %}
+    <p class="empty">Tidak ada ucapan terdeteksi.</p>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script>initJobDetail();</script>{% endblock %}

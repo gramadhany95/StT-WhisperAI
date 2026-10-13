@@ -1,0 +1,6 @@
+<nav class="subnav">
+  <a href="/admin" class="{{ 'active' if request.url.path == '/admin' }}">Dashboard</a>
+  <a href="/admin/users" class="{{ 'active' if request.url.path.startswith('/admin/users') }}">User</a>
+  <a href="/admin/jobs" class="{{ 'active' if request.url.path.startswith('/admin/jobs') }}">Semua job</a>
+  <a href="/admin/audit" class="{{ 'active' if request.url.path.startswith('/admin/audit') }}">Audit log</a>
+</nav>
